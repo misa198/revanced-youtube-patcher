@@ -1,0 +1,95 @@
+name: Build ReVanced YouTube
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_apk_url:
+        description: "Direct link to YouTube APK (.apk only)"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq aapt
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Download YouTube APK
+        run: |
+          curl -L "${{ github.event.inputs.youtube_apk_url }}" -o youtube.apk
+          file youtube.apk
+
+      - name: Extract YouTube version
+        run: |
+          YT_VERSION=$(aapt dump badging youtube.apk \
+            | grep "versionName=" \
+            | sed -E "s/.*versionName='([^']+)'.*/\1/")
+
+          if [ -z "$YT_VERSION" ]; then
+            echo "Failed to extract version"
+            exit 1
+          fi
+
+          echo "YouTube version: $YT_VERSION"
+          echo "YT_VERSION=$YT_VERSION" >> $GITHUB_ENV
+
+      - name: Download ReVanced CLI
+        run: |
+          CLI_JSON=$(curl -s https://api.github.com/repos/revanced/revanced-cli/releases/latest)
+
+          CLI_VERSION=$(echo "$CLI_JSON" | jq -r '.tag_name' | sed 's/^v//')
+
+          CLI_URL=$(echo "$CLI_JSON" \
+            | jq -r '.assets[] | select(.name | endswith("all.jar")) | .browser_download_url')
+
+          echo "CLI version: $CLI_VERSION"
+          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+
+          curl -L "$CLI_URL" -o revanced-cli.jar
+
+      - name: Download ReVanced patches
+        run: |
+          PATCH_JSON=$(curl -s https://api.github.com/repos/revanced/revanced-patches/releases/latest)
+
+          PATCH_VERSION=$(echo "$PATCH_JSON" | jq -r '.tag_name' | sed 's/^v//')
+
+          PATCH_URL=$(echo "$PATCH_JSON" \
+            | jq -r '.assets[] | select(.name | endswith(".rvp")) | .browser_download_url')
+
+          echo "Patches version: $PATCH_VERSION"
+          echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
+
+          curl -L "$PATCH_URL" -o patches.rvp
+
+      - name: Patch YouTube
+        run: |
+          java -jar revanced-cli.jar patch \
+            -p patches.rvp \
+            youtube.apk
+
+      - name: Rename output
+        run: |
+          OUTPUT="revanced_youtube_${YT_VERSION}_rv${CLI_VERSION}_p${PATCH_VERSION}.apk"
+          mv youtube-patched.apk "$OUTPUT"
+
+          echo "OUTPUT_FILE=$OUTPUT" >> $GITHUB_ENV
+          ls -lh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: yt-${{ env.YT_VERSION }}-rv${{ env.CLI_VERSION }}
+          name: ReVanced YouTube ${{ env.YT_VERSION }} (RV${{ env.CLI_VERSION }}, P${{ env.PATCH_VERSION }})
+          files: ${{ env.OUTPUT_FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
