@@ -73,8 +73,9 @@ jobs:
 
       - name: Patch YouTube
         run: |
-          java -jar revanced-cli.jar -b patch \
+          java -jar revanced-cli.jar patch \
             -p patches.rvp \
+            -b \
             youtube.apk
 
       - name: Rename output
