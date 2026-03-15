@@ -73,7 +73,7 @@ jobs:
 
       - name: Patch YouTube
         run: |
-          java -jar revanced-cli.jar patch \
+          java -jar revanced-cli.jar -b patch \
             -p patches.rvp \
             youtube.apk
 
