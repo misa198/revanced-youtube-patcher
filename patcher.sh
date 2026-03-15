@@ -35,6 +35,7 @@ echo "==> Patching $INPUT_APK"
 echo "==> Using patches: $PATCHES_FILE"
 
 $JAVA_BIN -jar "$CLI_JAR" patch \
+  -b \
   -p "$PATCHES_FILE" \
   "$INPUT_APK"
 
