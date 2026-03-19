@@ -76,7 +76,7 @@ Before downloading APK, you MUST check compatibility.
 
 Visit:
 
-https://revanced.app/patches?pkg=com.google.android.youtube
+[https://revanced.app/patches?pkg=com.google.android.youtube](https://github.com/anddea/revanced-patches/blob/main/patches.json)
 
 You will see:
 
