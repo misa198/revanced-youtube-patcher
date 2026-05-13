@@ -57,14 +57,24 @@ jobs:
 
           curl -L "$CLI_URL" -o revanced-cli.jar
 
-      - name: Download ReVanced patches
+      - name: Download ReVanced patches from GitLab
         run: |
-          PATCH_JSON=$(curl -s https://api.github.com/repos/revanced/revanced-patches/releases/latest)
+          # Use the exact case-sensitive path, URL-encoded
+          PROJECT_ID="ReVanced%2Frevanced-patches"
+          API_URL="https://gitlab.com/api/v4/projects/$PROJECT_ID/releases/permalink/latest"
+          
+          RELEASE_JSON=$(curl -s "$API_URL")
 
-          PATCH_VERSION=$(echo "$PATCH_JSON" | jq -r '.tag_name' | sed 's/^v//')
+          # Check if the API call was successful
+          if echo "$RELEASE_JSON" | jq -e 'has("message")' > /dev/null; then
+            echo "Error from GitLab API: $(echo "$RELEASE_JSON" | jq -r '.message')"
+            exit 1
+          fi
 
-          PATCH_URL=$(echo "$PATCH_JSON" \
-            | jq -r '.assets[] | select(.name | endswith(".rvp")) | .browser_download_url')
+          PATCH_VERSION=$(echo "$RELEASE_JSON" | jq -r '.tag_name' | sed 's/^v//')
+          
+          # Extract the .rvp file URL from the assets links
+          PATCH_URL=$(echo "$RELEASE_JSON" | jq -r '.assets.links[] | select(.name | endswith(".rvp")) | .url')
 
           echo "Patches version: $PATCH_VERSION"
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
